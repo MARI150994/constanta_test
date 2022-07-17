@@ -1,8 +1,8 @@
 """create event table
 
-Revision ID: bfaca5d4fa3b
+Revision ID: fae183dd8767
 Revises: 
-Create Date: 2022-07-16 16:02:05.502509
+Create Date: 2022-07-17 21:25:32.242419
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'bfaca5d4fa3b'
+revision = 'fae183dd8767'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -21,7 +21,9 @@ def upgrade() -> None:
     op.create_table('event',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('event_id', sa.Integer(), nullable=False),
-    sa.Column('scores', sa.JSON(), nullable=False),
+    sa.Column('score_index', sa.Integer(), nullable=False),
+    sa.Column('score1', sa.Integer(), nullable=False),
+    sa.Column('score2', sa.Integer(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     # ### end Alembic commands ###
