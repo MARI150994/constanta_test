@@ -33,35 +33,37 @@ async def fill_db():
     res = []
     with open('input', 'r') as f:
         for _ in range(1001):
-            d = json.loads(f.readline())
-            if d[0].get('class') != 'Fon.Notification.EventResultNotification':
-                continue
-            # get event id
-            event_id = d[0].get('object').get('eventResultId')
+            messages = json.loads(f.readline())
+            for message in messages:
+                if message.get('class') != 'Fon.Notification.EventResultNotification':
+                    continue
+                # get event id
+                event_id = message.get('object').get('eventResultId')
 
-            # get list of scores
-            scores = d[0].get('object').get('eventResultInstance')\
-                .get('object').get('scores')
+                # get list of scores
+                scores = message.get('object').get('eventResultInstance').get('object').get('scores')
 
-            # delete empty score list
-            if scores == []:
-                continue
+                # delete empty score list
+                if scores == []:
+                    continue
 
-            for object in scores:
-                # get event from object
-                event = object.get('object')
-                event.pop('flags')
-                print(f'resulIid: {event_id}, score_index: {event.get("scoreIndex")}, score1:{event.get("score1")} score2:{event.get("score2")}')
-                # give dict like {'scoreIndex': 0, 'score1': 0, 'score2':0}
-                with sync_session() as session:
-                    create_events(
-                        db=session,
-                        event_id=int(event_id),
-                        score_index=event.get('scoreIndex'),
-                        score1=event.get('score1'),
-                        score2=event.get('score2'),
-                    )
-                print()
+                for object in scores:
+                    # get event from object
+                    if object.get('class') != "Fon.Ora.ScoreBody":
+                        continue
+                    event = object.get('object')
+                    event.pop('flags')
+                    print(f'resulIid: {event_id}, score_index: {event.get("scoreIndex")}, score1:{event.get("score1")} score2:{event.get("score2")}')
+                    # give dict like {'scoreIndex': 0, 'score1': 0, 'score2':0}
+                    with sync_session() as session:
+                        create_events(
+                            db=session,
+                            event_id=int(event_id),
+                            score_index=event.get('scoreIndex'),
+                            score1=event.get('score1'),
+                            score2=event.get('score2'),
+                        )
+                    print()
                 # async with async_session() as session:
                 #     await create_events(
                 #         db=session,
