@@ -10,7 +10,17 @@ services:
     volumes:
       - pg-data:/var/lib/postgresql/data/ # persist data even if container shuts down
 
+  web:
+    build: .
+    command: python main.py
+    volumes:
+      - .:/usr/src/app
+    env_file:
+    - app.env
+    ports:
+      - '8000:8000'
+    depends_on:
+      - db
 
 volumes:
   pg-data:
-  cache:

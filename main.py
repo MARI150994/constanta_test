@@ -19,7 +19,7 @@ async def startup():
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     await database.connect()
-    print('Conenction ok')
+    print('Connection ok')
     print('Fill db, wait a minute please...')
     await fill_db()
     print('Finish fill db')
