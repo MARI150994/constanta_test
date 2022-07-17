@@ -1,190 +1,74 @@
 from typing import Union, List, Dict, Optional
 
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import text, func
-from sqlalchemy.orm import Session
+from sqlalchemy import func, and_
 
 from app import models
 from app.schemas import Score
 
-#
-# async def get_event_by_event_id(
-#         db: AsyncSession,
-#         event_id: int,
-# ) -> models.Event:
-#     query = select(models.Event).filter(models.Event.event_id==event_id)
-#     q = await db.execute(query)
-#     return q.scalars().first()
 
-
-def get_event_by_event_id(
+async def create_events(
         db: AsyncSession,
-        event_id: int,
-) -> models.Event:
-    query = select(models.Event).filter(models.Event.event_id==event_id).with_for_update()
-    q = db.execute(query)
-    return q.scalars().first()
-
-
-def create_events(
-        db: Session,
         event_id: int,
         score_index: int,
         score1: int,
         score2: int
 ) -> None:
-    event_exist = get_event_by_event_id(db, event_id)
-    if not event_exist:
-        db_event = models.Event(
-            event_id=event_id,
-        )
-        db.add(db_event)
-        db.commit()
-        db.refresh(db_event)
-        # event = await db.flush(db_event)
-        db_score = models.Score(
-            event_id=db_event.id,
-            score_index=score_index,
-            score1=score1,
-            score2=score2
-        )
-        db.add(db_score)
-        db.commit()
-    # if event_exist
-    else:
-        # check if score with this score_index already exist
-        current_score = select(models.Score)\
-            .join(models.Event)\
-            .filter(models.Event.event_id == event_id)\
-            .filter(models.Score.score_index == score_index)\
-            .order_by(models.Score.id.desc())
-        q = db.execute(current_score)
-        score = q.scalars().first()
-        # if not exist score with this scoreIndex - create score
-        if not score:
-            db_score = models.Score(
-                event_id=event_exist.id,
-                score_index=score_index,
-                score1=score1,
-                score2=score2
-            )
-            db.add(db_score)
-            db.commit()
-            return
-        # if exist check if score1 or score2 was changed
-        else:
+    # check if event with this score_index already exist
+    event = select(models.Event) \
+        .filter(and_(models.Event.event_id == event_id,
+                     models.Event.score_index == score_index,
+                     models.Event.score1 == score1,
+                     models.Event.score2 == score2))
+    q = await db.execute(event)
+    event = q.scalars().first()
+    # if this event already exist - do nothing
+    if event:
+        return
 
-            if score.score1 != score1 or score.score2 != score2:
-                db_score = models.Score(
-                    event_id=event_exist.id,
-                    score_index=score_index,
-                    score1=score1,
-                    score2=score2
-                )
-                db.add(db_score)
-                db.commit()
-
-
-
-#
-# async def create_events(
-#         db: AsyncSession,
-#         event_id: int,
-#         score_index: int,
-#         score1: int,
-#         score2: int
-# ) -> None:
-#     event_exist = await get_event_by_event_id(db, event_id)
-#     if not event_exist:
-#         db_event = models.Event(
-#             event_id=event_id,
-#         )
-#         db.add(db_event)
-#         await db.commit()
-#         await db.refresh(db_event)
-#         # event = await db.flush(db_event)
-#         db_score = models.Score(
-#             event_id=db_event.id,
-#             score_index=score_index,
-#             score1=score1,
-#             score2=score2
-#         )
-#         db.add(db_score)
-#         await db.commit()
-#     else:
-#         # check if score with this score_index already exist
-#         current_score = select(models.Score).with_for_update().filter(event_id == event_id)\
-#             .filter(models.Score.score_index == score_index)\
-#             .order_by(models.Score.id.desc())
-#         q = await db.execute(current_score)
-#         score = q.scalars().first()
-#         # if not exist score with this scoreIndex - create score
-#         if not score:
-#             print('score not exist, event_id, score_index, score1, score2', event_id, score_index, score1, score2)
-#             db_score = models.Score(
-#                 event_id=event_exist.id,
-#                 score_index=score_index,
-#                 score1=score1,
-#                 score2=score2
-#             )
-#             db.add(db_score)
-#             await db.commit()
-#             return
-#         # if exist check if score1 or score2 was changed
-#         else:
-#             print('score EXIST, event_id, score_index, score1, score2', event_id, score_index, score1, score2)
-#             if score.score1 != score1 or score.score2 != score2:
-#                 db_score = models.Score(
-#                     event_id=event_exist.id,
-#                     score_index=score_index,
-#                     score1=score1,
-#                     score2=score2
-#                 )
-#                 db.add(db_score)
-#                 await db.commit()
+    # if event doesn't exist - create new
+    db_event = models.Event(
+        event_id=event_id,
+        score_index=score_index,
+        score1=score1,
+        score2=score2
+    )
+    db.add(db_event)
+    await db.commit()
+    return
 
 
 async def read_events(
         db: AsyncSession,
-        skip: int,
-        limit: int,
 ):
-    events = select(models.Event).order_by(models.Event.id)
+    # select distinct event_id
+    events = select(models.Event.event_id).distinct(models.Event.event_id)
     events_list = {}
     q = await db.execute(events)
-    for event in q.scalars().all():
-        # print('event', event.id)
-        # for event in await db.execute(events):
-        # event_id = event[0].event_id
-        # event_pk = event[0].id
-        print('event pk, event_id', event.event_id, event.id)
-        subq = select(func.max(models.Score.id).label('id'))\
-            .filter(models.Score.event_id == event.id)\
-            .group_by(models.Score.score_index).subquery()
-        query = select(models.Score)\
-            .filter(models.Score.id.in_((subq)))
+    for event_id in q.scalars().all():
+        subq = select(func.max(models.Event.id).label('id')) \
+            .filter(models.Event.event_id == event_id) \
+            .group_by(models.Event.score_index)
+        query = select(models.Event) \
+            .filter(models.Event.id.in_(subq))
         q = await db.execute(query)
         scores = q.scalars().all()
-        events_list[event.event_id] = scores
+        events_list[event_id] = [
+            Score(**{'score_index': score.score_index,
+                     'score1': score.score1,
+                     'score2': score.score2}) for score in scores]
     return events_list
-
-    #
-    #
-    # subq = select(func.max(models.Score.id).label('id'))\
-    #     .group_by(models.Score.event_id, models.Score.score_index).subquery()
-    # query = select(models.Score).filter(models.Score.id.in_((subq))).order_by(models.Score.event_id, models.Score.id)
-    # q = await db.execute(query)
-    # return q.scalars().all()
 
 
 async def get_event(
         db: AsyncSession,
         event_id: int
 ):
-    query = select(models.Score) \
-        .join(models.Event) \
-        .filter(models.Event.event_id == event_id)\
-        .order_by(models.Score.id)
+    query = select(models.Event).filter(models.Event.event_id == event_id).order_by(models.Event.id)
     q = await db.execute(query)
-    return q.scalars().all()
+    event_history = q.scalars().all()
+    if not event_history:
+        raise HTTPException(status_code=404, detail="Event with this event id doesn't exist")
+    return event_history

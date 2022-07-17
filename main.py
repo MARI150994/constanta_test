@@ -1,19 +1,15 @@
 import json
-import logging
 
 import uvicorn
-from fastapi import FastAPI, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import FastAPI
 
-from app.api.deps import get_db
 from app.api.endpoints import router
 from app.crud import create_events
 from app.models import Base
-from app.models.db import database, async_session, engine, sync_session
+from app.models.db import database, async_session, engine
 
 app = FastAPI()
 app.include_router(router)
-
 
 
 @app.on_event('startup')
@@ -53,25 +49,16 @@ async def fill_db():
                         continue
                     event = object.get('object')
                     event.pop('flags')
-                    print(f'resulIid: {event_id}, score_index: {event.get("scoreIndex")}, score1:{event.get("score1")} score2:{event.get("score2")}')
+
                     # give dict like {'scoreIndex': 0, 'score1': 0, 'score2':0}
-                    with sync_session() as session:
-                        create_events(
+                    async with async_session() as session:
+                        await create_events(
                             db=session,
                             event_id=int(event_id),
                             score_index=event.get('scoreIndex'),
                             score1=event.get('score1'),
                             score2=event.get('score2'),
                         )
-                    print()
-                # async with async_session() as session:
-                #     await create_events(
-                #         db=session,
-                #         event_id=int(event_id),
-                #         score_index=event.get('scoreIndex'),
-                #         score1=event.get('score1'),
-                #         score2=event.get('score2'),
-                #     )
 
 
 if __name__ == '__main__':

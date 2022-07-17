@@ -6,5 +6,7 @@ from .base import Base
 
 class Event(Base):
     event_id = Column(Integer, nullable=False)
-    scores = relationship('Score', back_populates='event')
+    score_index = Column(Integer, nullable=False)
+    score1 = Column(Integer, nullable=False)
+    score2 = Column(Integer, nullable=False)
 
