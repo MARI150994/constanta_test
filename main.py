@@ -9,13 +9,12 @@ from app.api.deps import get_db
 from app.api.endpoints import router
 from app.crud import create_events
 from app.models import Base
-from app.models.db import database, async_session, engine
-
+from app.models.db import database, async_session, engine, sync_session
 
 app = FastAPI()
 app.include_router(router)
 
-# TODO drop all on shutdown
+
 
 @app.on_event('startup')
 async def startup():
@@ -29,41 +28,48 @@ async def startup():
     await fill_db()
     print('Finish fill db')
 
-# TODO shutdown
-#
-# @app.on_event('shutdown')
-# async def shutdown():
-#     async with engine.begin() as conn:
-#         print('Clear db')
-#         async with async_session() as session:
-#             await delete_events
-#         print('Finish clear db')
-
 
 async def fill_db():
     res = []
     with open('input', 'r') as f:
-        for _ in range(50):
+        for _ in range(1001):
             d = json.loads(f.readline())
             if d[0].get('class') != 'Fon.Notification.EventResultNotification':
                 continue
             # get event id
             event_id = d[0].get('object').get('eventResultId')
+
             # get list of scores
-            score_events = d[0].get('object').get('eventResultInstance')\
+            scores = d[0].get('object').get('eventResultInstance')\
                 .get('object').get('scores')
+
             # delete empty score list
-            if score_events == []:
+            if scores == []:
                 continue
-            to_db_scores = []
-            for event in score_events:
-                e = event.get('object')
-                e.pop('flags')
-                to_db_scores.append(e)
-            async with async_session() as session:
-                await create_events(db=session,
-                                   event_id=int(event_id),
-                                   scores=to_db_scores)
+
+            for object in scores:
+                # get event from object
+                event = object.get('object')
+                event.pop('flags')
+                print(f'resulIid: {event_id}, score_index: {event.get("scoreIndex")}, score1:{event.get("score1")} score2:{event.get("score2")}')
+                # give dict like {'scoreIndex': 0, 'score1': 0, 'score2':0}
+                with sync_session() as session:
+                    create_events(
+                        db=session,
+                        event_id=int(event_id),
+                        score_index=event.get('scoreIndex'),
+                        score1=event.get('score1'),
+                        score2=event.get('score2'),
+                    )
+                print()
+                # async with async_session() as session:
+                #     await create_events(
+                #         db=session,
+                #         event_id=int(event_id),
+                #         score_index=event.get('scoreIndex'),
+                #         score1=event.get('score1'),
+                #         score2=event.get('score2'),
+                #     )
 
 
 if __name__ == '__main__':
